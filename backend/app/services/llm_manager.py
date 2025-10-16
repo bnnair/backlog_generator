@@ -103,6 +103,7 @@ class DeepSeekModel(AIModel):
             )
             # logger.debug("response-------------------------------- : ", response.choices[0].message.content)
             # Extract and return the generated text
+            logger.debug(f"response === {response}")
             return response.choices[0].message.content.strip()
 
         except Exception as e:
@@ -179,6 +180,8 @@ class AIAdapter:
                 # logger.debug(f"llm_api_key : {llm_api_key}")
                 logger.debug(f"Using {model_type} with {llm_model}")
                 break
+            
+
             
         if model_type == "openai":
             return OpenAIModel(api_key=llm_api_key, llm_model=llm_model, base_url=base_url)

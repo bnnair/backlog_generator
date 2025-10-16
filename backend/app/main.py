@@ -8,6 +8,7 @@ from services.llm_manager import AIAdapter
 from services.requirement_specialist import RequirementsSpecialist
 from services.backlog_specialist import BacklogSpecialist
 from models.database import RequirementsDatabase
+from factory.ai_model_factory import AIModelFactory   
 
 logger = get_logger(__name__)   
 
@@ -20,7 +21,10 @@ class RequirementsOrchestrator:
     
     def __init__(self):
         self.db = RequirementsDatabase()
-        self.llm_adapter = self._initialize_llm_adapter()
+        # self.llm_adapter = self._initialize_llm_adapter()
+        AIModelFactory.initialize()
+        self.llm_adapter = AIModelFactory.create_model("deepseek")
+        
         self.requirements_agent = RequirementsSpecialist(self.llm_adapter, agent_id="req_agent", db=self.db)
         self.backlog_agent = BacklogSpecialist(self.llm_adapter, agent_id="backlog_agent", db=self.db)
         self.max_iterations = 50  # Maximum feedback cycles
@@ -30,7 +34,7 @@ class RequirementsOrchestrator:
         try:
             logger.info("Initializing LLM adapter")
             
-            MODEL_TYPE = "deepseek"  # Options: 'openai', 'deepseek', 'perplexity','huggingface'
+            MODEL_TYPE = "mistral"  # Options: 'openai', 'deepseek', 'perplexity','huggingface', 'mistral'
             # Call the LLM to enhance the resume
             config = ConfigManager.update_config()
             logger.debug(f"config : {config}")
@@ -52,26 +56,24 @@ class RequirementsOrchestrator:
             return True
         
         feedback = progressive_json_repair(feedback_data)
-        # feedback = self.clean_markdown_json(feedback_data)
-        # feedback = json.loads(feedback)
         feedback = feedback['feedback']
         
-        # Check all categories
-        categories = ['completeness', 'clarity', 'prioritization', 'technical_feasibility']
+        # Check for required_changes array in the new structure
+        if 'required_changes' in feedback:
+            changes = feedback['required_changes']
+            if changes and len(changes) > 0:  # If there are any required changes
+                return False
         
-        for category in categories:
-            if category in feedback:
-                suggestions = feedback[category].get('suggestions', [])
-                if suggestions:  # If any category has suggestions
-                    return False
-        
-        return True  # All categories are empty
+        # Also check for empty array case
+        if 'required_changes' in feedback and feedback['required_changes'] == []:
+            return True
     
     async def generate_feedback_mechanism(self, backlog: str, project_id:int, backlog_id:int, 
                                           iteration_count: int = 0):
         """Generate feedback mechanism for backlog review"""
         try:
-            logger.info("Generating feedback mechanism for backlog review")
+            
+            logger.info(f"Generating feedback mechanism for backlog functional review")
             # Step 3: Review and refine backlog
             logger.info("Step 3: Reviewing and refining backlog...")
             iteration = 0 + iteration_count
@@ -82,7 +84,7 @@ class RequirementsOrchestrator:
                 logger.info(f"  Iteration {iteration} of {self.max_iterations}")
 
                 # BA agent reviews the backlog
-                feedback_items = await self.requirements_agent.review_backlog( updated_items, 
+                feedback_items = await self.requirements_agent.review_fr_backlog( updated_items, 
                                                     project_id, backlog_id, feedback_id=iteration)
 
                 if self.is_feedback_empty(feedback_items):
@@ -109,8 +111,8 @@ class RequirementsOrchestrator:
                 all_feedback.append(feedback_json)
                 updated_items = json.dumps(updated_items)
                 # Backlog specialist addresses the feedback
-                updated_items = await self.backlog_agent.improve_backlog( updated_items, feedback_json)
-                
+                updated_items = await self.backlog_agent.improve_fr_backlog( updated_items, feedback_json)
+            
                 logger.info(f"  Updated backlog items based on feedback : {updated_items}")
 
                 self.db.update_backlog_item(backlog_id, updated_items)
@@ -202,7 +204,7 @@ class RequirementsOrchestrator:
             tech_stack = user_input['tech_stack']
             
             # Create project in database
-            project_id = self.db.create_project(project_name, project_description, user_requirements, tech_stack)            
+            project_id = self.db.create_project(project_name, project_description, user_requirements, str(tech_stack))            
 
 
             # Step 1: Generate detailed requirement document
@@ -220,7 +222,7 @@ class RequirementsOrchestrator:
                                                                         req_doc_id, requirements_doc)
             
             # Step 3: Review and refine backlog
-            updated_items, iteration, all_feedback = self.generate_feedback_mechanism(product_backlog, 
+            updated_items, iteration, all_feedback = await self.generate_feedback_mechanism(product_backlog, 
                                                                                       project_id, backlog_id)
                     
             # Get final results
@@ -266,19 +268,43 @@ def main():
         
         # Sample user input
         user_input = {
-            'project_name': 'Customer Relationship Management System',
-            'description': 'A web-based CRM system to manage customer interactions, sales, and support.',
+            'project_name': 'Automated Web Trading Platform',
+            'description': '''A web-based trading application that automatically executes predefined trading strategies 
+             using Zerodha API with real-time market data analysis and automated order execution.''',
             'user_requirements': """
             The system should provide:
-            1. Customer profile management with contact information, interaction history, and preferences
-            2. Role-based access control for different user types (sales, manager, admin)
-            3. ticketing system for customer inquiries and support requests
+            1. Secure Zerodha API integration with encrypted credential storage and OAuth2 authentication
+            2. Real-time market data streaming for stocks, indices, and derivatives
+            3. Strategy configuration interface for creating, testing, and deploying trading algorithms
+            4. Automated order execution based on predefined strategy triggers and conditions
+            5. Portfolio dashboard with live P&L, position tracking, and performance analytics
+            6. Backtesting module to validate strategies against historical data
+            7. Risk management features including position sizing, stop-loss, and exposure limits
+            8. Trade journal with automated logging of all executions and strategy decisions
+            9. Real-time alerts and notifications for strategy triggers and system events
+            10. User management with role-based access control (admin, trader, viewer)
             """,
-            'tech_stack': 'React, Node.js, PostgreSQL, AWS'
+            'tech_stack': {
+                'frontend': 'React with TypeScript, Chart.js/D3.js, WebSocket client',
+                'backend': 'Python (FastAPI), Celery for async tasks, Redis for caching',
+                'database': 'sqllite for user data, TimescaleDB for market data',
+                'broker_integration': 'Zerodha Kite API, pykiteconnect SDK',
+                'real_time_processing': 'WebSocket, Redis Pub/Sub, Kafka for event streaming',
+                'infrastructure': 'Docker, AWS EC2/EKS, RDS, CloudWatch for monitoring',
+                'authentication': 'JWT tokens, OAuth2, SSL encryption'
+            },
+            'key_features': [
+                'Multi-strategy automation engine',
+                'Real-time market data pipeline',
+                'Paper trading mode for strategy testing',
+                'Performance analytics and reporting',
+                'API rate limit management and error handling',
+                'Mobile-responsive web interface'
+            ]
         }
         
         # Generate deliverables
-        # logger.info("Starting requirements generation system")
+        # logger.info("Starting functional requirements generation system")
         # result = asyncio.run(orchestrator.generate_deliverables(user_input))
         
         ### continue generating backlog from latest backlog id and from the latest feedback iteration

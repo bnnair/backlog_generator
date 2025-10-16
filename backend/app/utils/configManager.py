@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 class ConfigError(Exception):
     pass
-11
+
 
 class ConfigManager:
     

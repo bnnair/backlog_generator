@@ -1,0 +1,74 @@
+# AI Model Configuration
+models:
+  openai:
+    class_path: "ai_models.openai_provider.OpenAIModel"
+    required_params: ["api_key_string", "model_name", "base_url"]
+    optional_params: []
+    default_params:
+      temperature: 0.7
+      max_tokens: 1000
+      timeout: 30
+  
+  deepseek:
+    class_path: "ai_models.deepseek_provider.DeepSeekModel"
+    required_params: ["api_key_string", "model_name", "base_url"]
+    optional_params: []
+    default_params:
+
+  
+  perplexity:
+    class_path: "ai_models.perplexity_provider.PerplexityModel"
+    required_params: ["api_key_string", "model_name", "base_url"]
+    optional_params: ["temperature", "max_tokens"]
+  
+  huggingface:
+    class_path: "ai_models.huggingface_provider.HuggingFaceModel"
+    required_params: ["model_name"]
+    optional_params: []
+    default_params:
+
+  mistral:
+    class_path: "ai_models.mistral_provider.MistralModel"
+    required_params: ["api_key_string", "model_name", "base_url"]
+    optional_params: []
+    default_params:
+
+  # anthropic:
+  #   class_path: "ai_models.anthropic_provider.AnthropicModel"
+  #   required_params: ["api_key", "model_name"]
+  #   optional_params: ["temperature", "max_tokens"]
+  #   default_params:
+  #     temperature: 0.7
+
+  # azure_openai:
+  #   class_path: "ai_models.azure_openai_provider.AzureOpenAIModel"
+  #   required_params: ["api_key", "model_name", "base_url", "api_version"]
+  #   optional_params: ["temperature", "max_tokens"]
+
+  # google_vertex:
+  #   class_path: "ai_models.vertex_provider.VertexAIModel"
+  #   required_params: ["project_id", "location", "model_name"]
+  #   optional_params: ["temperature", "max_tokens"]
+
+# Model provider configurations
+providers:
+  - name: 'openai'
+    model_name: 'gpt-4.1' #, 'gpt-3.5-turbo']
+    api_key_string: 'OPENAI_API_KEY'   ### this key is in the env
+    base_url: ""
+  - name: 'deepseek'
+    model_name:  "tngtech/deepseek-r1t2-chimera:free"   #'deepseek/deepseek-chat-v3-0324:free' ## 'deepseek/deepseek-chat-v3.1:free' ## 'deepseek/deepseek-r1-0528-qwen3-8b:free'   ##'deepseek/deepseek-chat-v3-0324:free' 
+    api_key_string: 'DEEPSEEK_API_KEY_1'
+    base_url: "https://openrouter.ai/api/v1"
+  - name: 'perplexity'
+    model_name: 'sonar-pro'  #'llama-3.1-70b-instruct'
+    api_key_string: 'PERPLEXITY_API_KEY'
+    base_url: "https://api.perplexity.ai"
+  - name: 'huggingface'
+    model_name: 'deepseek-ai/deepseek-coder-6.7b-instruct'  # Example model, replace with your desired model
+    api_key_string: ''  # No API key needed for local models
+    base_url: ""
+  - name: 'mistral'
+    model_name: 'mistralai/mistral-small-3.2-24b-instruct:free'  # Example model, replace with your desired model
+    api_key_string: 'DEEPSEEK_API_KEY_1'  # No API key needed for local models
+    base_url: "https://openrouter.ai/api/v1"
